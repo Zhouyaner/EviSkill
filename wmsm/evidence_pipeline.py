@@ -9770,6 +9770,26 @@ def _allocate_working_branch_post_reject_jobs(
     return allocated, excluded
 
 
+def _working_branch_contextual_replay_edit(
+    edit: Dict[str, Any],
+    *,
+    evidence_by_id: Dict[str, Dict[str, Any]],
+    state: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    origin_ids = origin_edit_ids_from_evidence(edit, evidence_by_id)
+    origin_record = (
+        _working_branch_ledger_by_id(state).get(origin_ids[0])
+        if len(origin_ids) == 1
+        else None
+    )
+    if origin_record is None:
+        return dict(edit)
+    origin_content = str((origin_record.get("edit") or {}).get("content") or "").strip()
+    if not origin_content or str(edit.get("op") or "") == "delete":
+        return None
+    return {**edit, "op": "replace", "target": origin_content}
+
+
 def _run_working_branch_post_reject_replay(
     *,
     dataset: str,
@@ -9877,18 +9897,25 @@ def _run_working_branch_post_reject_replay(
     judge_cache_hits = 0
     reflections = 0
     for edit_index, (edit, jobs) in enumerate(allocated):
-        independent_skill_md, apply_reports = _apply_markdown_edits(validated_skill_md, [edit])
+        replay_edit = _working_branch_contextual_replay_edit(
+            edit,
+            evidence_by_id=evidence_by_id,
+            state=working_branch_state,
+        )
+        contextual_skill_md, apply_reports = _apply_markdown_edits(
+            working_skill_md, [replay_edit] if replay_edit is not None else []
+        )
         if not apply_reports or not all(row.get("applied") for row in apply_reports):
-            rejected.append({"edit": edit, "reason": "independent_edit_did_not_apply"})
-            excluded_reasons[str(edit.get("_working_edit_id") or "")] = "independent_edit_did_not_apply"
+            rejected.append({"edit": edit, "reason": "contextual_edit_did_not_apply"})
+            excluded_reasons[str(edit.get("_working_edit_id") or "")] = "contextual_edit_did_not_apply"
             continue
-        atomic_write_text(tmp_skill_path, independent_skill_md)
+        atomic_write_text(tmp_skill_path, contextual_skill_md)
         replay_evidence: List[Dict[str, Any]] = []
         edit_replay_cache_keys: List[str] = []
         for job in jobs:
             card, range_index, trigger = job
-            cache_key = "independent_v2:" + replay_cache_key(
-                independent_skill_md,
+            cache_key = "working_context_v3:" + replay_cache_key(
+                contextual_skill_md,
                 edit,
                 evidence_id=str(card.get("evidence_id") or ""),
                 range_index=range_index,
@@ -9951,10 +9978,11 @@ def _run_working_branch_post_reject_replay(
             )
 
         judge_cache_key = skill_fingerprint(
-            "independent_v2:"
-            + independent_skill_md
+            "working_context_v3:"
+            + contextual_skill_md
             + json.dumps(
                 {
+                    "working_skill": skill_fingerprint(working_skill_md),
                     "edit": _working_edit_payload(edit),
                     "replay_cache_keys": edit_replay_cache_keys,
                 },
@@ -9998,8 +10026,8 @@ def _run_working_branch_post_reject_replay(
 
         linked = _linked_evidence(edit, evidence_by_id)
         payload = _build_l2_skill_judge_payload(
-            skill_md=validated_skill_md,
-            edit=edit,
+            skill_md=working_skill_md,
+            edit=replay_edit,
             linked_evidence=linked,
             replay_evidence=replay_evidence,
             dataset=dataset,
@@ -10007,12 +10035,12 @@ def _run_working_branch_post_reject_replay(
             reflection_allowed=_uses_l2_replay_attribution(dataset),
         )
         if len(replay_evidence) != len(jobs) or any(row.get("error") for row in replay_evidence):
-            label = {"decision": "reject", "reason": "independent_replay_incomplete_or_failed"}
+            label = {"decision": "reject", "reason": "contextual_replay_incomplete_or_failed"}
         else:
             label = _l2_skill_judge_label(
                 teacher=teacher,
-                skill_md=validated_skill_md,
-                edit=edit,
+                skill_md=working_skill_md,
+                edit=replay_edit,
                 linked_evidence=linked,
                 replay_evidence=replay_evidence,
                 dataset=dataset,
@@ -10037,8 +10065,8 @@ def _run_working_branch_post_reject_replay(
             reflection = _l2_replay_reflection(
                 dataset=dataset,
                 teacher=teacher,
-                skill_md=validated_skill_md,
-                edit=edit,
+                skill_md=working_skill_md,
+                edit=replay_edit,
                 linked_evidence=linked,
                 replay_evidence=replay_evidence,
                 judge_output=label,
@@ -10062,15 +10090,24 @@ def _run_working_branch_post_reject_replay(
                     evidence_by_id=evidence_by_id,
                     state=working_branch_state,
                 )
-                if revised_edit is None:
+                revised_replay_edit = (
+                    _working_branch_contextual_replay_edit(
+                        revised_edit,
+                        evidence_by_id=evidence_by_id,
+                        state=working_branch_state,
+                    )
+                    if revised_edit is not None
+                    else None
+                )
+                if revised_replay_edit is None:
                     label = {"decision": "reject", "reason": "non_standalone_correction"}
                 else:
                     verification = _verify_l2_reflected_edit(
                         dataset=dataset,
                         teacher=teacher,
                         runner=runner,
-                        skill_md=validated_skill_md,
-                        edit=revised_edit,
+                        skill_md=working_skill_md,
+                        edit=revised_replay_edit,
                         linked_evidence=_linked_evidence(revised_edit, evidence_by_id),
                         replay_jobs=jobs,
                         replay_source_by_evidence_id=replay_source_by_evidence_id,
