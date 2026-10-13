@@ -48,7 +48,6 @@ def _acquire_output_dir_lock(output_dir: str):
 
 
 def _ensure_llm_context_config(output_dir: Path, args) -> None:
-    """Prevent resuming a compacted run with the full-context semantics (or vice versa)."""
     config_path = output_dir / "llm_context_config.json"
     expected = {
         "schema_version": 1,
@@ -69,9 +68,6 @@ def _ensure_llm_context_config(output_dir: Path, args) -> None:
             )
         return
 
-    # The watcher creates its log before the generator reaches this guard. Logs
-    # are not evidence/checkpoints and must not make a fresh output look like a
-    # compacted run. Any substantive artifact still triggers the guard below.
     existing_artifacts = [
         path.name
         for path in output_dir.iterdir()
@@ -113,7 +109,6 @@ def _policy_defer_epoch_limit(value: str) -> int:
 
 
 class _StoreDeferRuleIgnored(argparse.Action):
-    """Set the canonical flag and its deprecated compatibility attribute."""
 
     def __call__(self, parser, namespace, values, option_string=None):
         setattr(namespace, "defer_rule_ignored", True)

@@ -208,7 +208,7 @@ Return only valid JSON:
 }
 
 Rules:
-- Return at most one revised_edit. `evidence_ids` must be a non-empty subset of the original candidate evidence_ids.
+- Return at most one revised_edit. `evidence_ids` must preserve exactly the original candidate evidence_ids; do not add or remove IDs.
 - Use only details supported by the linked evidence and current skill. Do not invent facts or include task answers, private values, or incidental identifiers.
 - The revised edit must differ from the original and mechanically apply to current skill.md.
 - When repairing contradicted guidance, replace, soften, or generalize it instead of appending a competing rule.

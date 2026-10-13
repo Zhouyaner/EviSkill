@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Build the 96/48/full ALFWorld split used by the main experiments."""
 
 from __future__ import annotations
 

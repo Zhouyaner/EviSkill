@@ -75,8 +75,6 @@ def _response(handler: BaseHTTPRequestHandler, payload: Dict[str, Any], status: 
         handler.end_headers()
         handler.wfile.write(body)
     except (BrokenPipeError, ConnectionResetError):
-        # The client timed out or was interrupted while ScienceWorld was
-        # preparing the response. The environment process can keep serving.
         return
 
 
@@ -191,9 +189,6 @@ def parse_args():
     p.add_argument("--port", type=int, default=8811)
     p.add_argument("--scienceworld-path", default=None, help="Path to a local ScienceWorld checkout; added to PYTHONPATH.")
     p.add_argument("--scienceworld-jar-path", default=None, help="Path to scienceworld.jar. Defaults to the package jar.")
-    # The manifests include tasks with recommended_max_steps=120. This server
-    # limit is only a hard ceiling; task-specific rollout budgets remain set by
-    # each manifest row.
     p.add_argument("--scienceworld-env-step-limit", type=int, default=120)
     return p.parse_args()
 

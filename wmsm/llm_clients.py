@@ -105,7 +105,6 @@ def _generic_context_retry_budget(
     current_max_tokens: int,
     context_attempt: int,
 ) -> Optional[Dict[str, int]]:
-    """Back off completion length when a proxy omits token counts in 400s."""
 
     if int(status_code) != 400:
         return None
@@ -115,8 +114,6 @@ def _generic_context_retry_budget(
         for phrase in ("context window", "context length", "maximum context")
     ):
         return None
-    # Keep this bounded: if the prompt itself is too large, repeated retries
-    # cannot help and the caller should receive the original non-retryable error.
     if int(context_attempt) >= 5:
         return None
     current = max(1, int(current_max_tokens))
@@ -489,11 +486,6 @@ class OpenAIChatClient:
         raise RuntimeError(f"OpenAI JSON request failed after retries: {last_error}")
 
 class HFChatClient:
-    """Small local HF generation client compatible with chat_json.
-
-    This supports local Hugging Face inference. For large models, prefer serving the model with vLLM
-    and using OpenAIChatClient against the local OpenAI-compatible endpoint.
-    """
     def __init__(self, model_name_or_path: str, temperature: Optional[float] = None, max_tokens: int = 1024,
                  load_in_4bit: bool = False):
         import torch

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Reproduce the exact 96/48/full ScienceWorld split used by the main experiments."""
 
 from __future__ import annotations
 
@@ -11,8 +10,6 @@ from pathlib import Path
 from typing import Any
 
 
-# SkillNet row indices released with the main experiment split. Keeping these
-# explicit avoids changes caused by Python, NumPy, or dataframe samplers.
 MAIN_TRAIN_INDICES = [
     1386, 1271, 1400, 105, 334, 1408, 368, 1422, 897, 1286, 1188, 621,
     25, 1035, 142, 1343, 792, 1109, 1283, 1468, 1111, 180, 889, 361,

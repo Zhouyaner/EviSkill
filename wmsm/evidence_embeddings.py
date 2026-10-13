@@ -23,7 +23,6 @@ def _truncate_text(value: Any, max_chars: int) -> str:
 
 
 def compact_action_sequence(before_segments: Any, *, max_actions: int = 12) -> str:
-    """Return a compact action-only summary from EvidenceCard before_segments."""
     max_actions = max(1, int(max_actions))
     if not isinstance(before_segments, list):
         return ""
@@ -73,7 +72,6 @@ def build_evidence_embedding_text(
     max_reason_chars: int = 300,
     max_actions: int = 12,
 ) -> str:
-    """Build the minimal semantic text used for EvidenceCard clustering."""
     proposed_edit = card.get("proposed_edit") if isinstance(card.get("proposed_edit"), dict) else {}
     edit_op = _clean_text(proposed_edit.get("op"))
     edit_target = _clean_text(proposed_edit.get("target"))
@@ -146,11 +144,6 @@ def encode_evidence_cards(
     max_actions: int = 12,
     encoder: Optional[Callable[[List[str]], List[List[float]]]] = None,
 ) -> Tuple[List[List[float]], Dict[str, Any]]:
-    """Encode EvidenceCards with cache support.
-
-    The optional encoder is used by tests and must return already comparable
-    vectors. Production calls use sentence-transformers and normalize vectors.
-    """
     texts = [
         build_evidence_embedding_text(
             card,
@@ -171,7 +164,7 @@ def encode_evidence_cards(
         if encoder is None:
             try:
                 from sentence_transformers import SentenceTransformer
-            except Exception as exc:  # pragma: no cover - exercised in integration environments
+            except Exception as exc:
                 raise RuntimeError(
                     "Semantic evidence clustering requires sentence_transformers. "
                     "Install it in the active environment or use card/round grouping."
@@ -188,7 +181,7 @@ def encode_evidence_cards(
                     normalize_embeddings=True,
                     show_progress_bar=False,
                 )
-            except Exception as exc:  # pragma: no cover - depends on external model state
+            except Exception as exc:
                 raise RuntimeError(
                     f"Failed to load or run evidence embedding model {model_name!r}: {exc}"
                 ) from exc

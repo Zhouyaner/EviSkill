@@ -96,8 +96,6 @@ def preflight_alfworld_path_splits(
     if not available:
         return {"enabled": False, "reason": "no manifests"}
 
-    # Legacy ALFWorld manifests may identify reset-search tasks without exact
-    # gamefiles. Only the SkillOPT-style path format is handled by this audit.
     first_path = Path(str(next(iter(available.values())))).expanduser()
     try:
         first_rows = json.loads(first_path.read_text(encoding="utf-8"))

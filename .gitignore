@@ -7,7 +7,6 @@ build/
 dist/
 *.egg-info/
 
-# Generated runs and local checkpoints
 outputs/
 checkpoints/
 *.lock
@@ -15,7 +14,6 @@ checkpoints/
 *.log
 *.tmp
 
-# Local model and environment data
 models/
 data/
 appworld_data/
@@ -23,7 +21,6 @@ ScienceWorld/
 WebShop/
 ALFWorld/
 
-# Local credentials and runtime snapshots
 .env
 .env.*
 *_runtime_config.json

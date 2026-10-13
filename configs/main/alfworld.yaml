@@ -9,8 +9,6 @@ provenance:
   note: >-
     The experiment uses the json_2.1.1 data layout and the TextWorld runtime.
 
-# These are the only benchmark data paths that need machine-local editing.
-# The launcher exports ALFWORLD_DATA before starting the benchmark.
 environment:
   ALFWORLD_DATA: ${ALFWORLD_DATA:-/path/to/alfworld/data}
 
@@ -19,11 +17,7 @@ paths:
   selection_manifest: data/splits/alfworld_main/val/items.json
   test_manifest: data/splits/alfworld_main/test/items.json
   skill_bank: skills/alfworld_initial.md
-  # Leave alfworld_path empty when ALFWorld is installed in the active Python
-  # environment. Set ALFWORLD_PATH only for a source checkout installation.
   alfworld_path: ${ALFWORLD_PATH:-}
-  # This is the EviSkill-owned runtime configuration; only the data root is
-  # machine-local through ALFWORLD_DATA.
   alfworld_config: ${ALFWORLD_CONFIG:-configs/alfworld/config_tw.yaml}
   evidence_embedding_model: ${EVIDENCE_EMBEDDING_MODEL:-Qwen/Qwen3-Embedding-0.6B}
 

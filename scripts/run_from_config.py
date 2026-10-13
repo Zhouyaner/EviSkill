@@ -1,10 +1,4 @@
 #!/usr/bin/env python3
-"""Run EviSkill from one reproducible YAML experiment configuration.
-
-The YAML files contain the benchmark protocol and machine-specific paths. API
-credentials are intentionally resolved from the process environment by the
-existing LLM client and are never written to the resolved configuration.
-"""
 
 from __future__ import annotations
 
@@ -71,8 +65,6 @@ def _as_cli_name(dest: str) -> str:
 
 
 def _parser_actions() -> Dict[str, argparse.Action]:
-    # Import lazily so --help for this launcher remains useful even when the
-    # package is being inspected before optional runtime dependencies are built.
     from scripts.run_eviskill import add_generation_args
 
     parser = argparse.ArgumentParser(add_help=False)
@@ -109,8 +101,6 @@ def _arguments_to_cli(arguments: Mapping[str, Any]) -> list[str]:
             )
         )
         if value is None or value is False:
-            # BooleanOptionalAction needs an explicit negative flag when the
-            # config intentionally differs from its parser default.
             if value is False and isinstance(action, argparse.BooleanOptionalAction):
                 negative = next(
                     (flag for flag in action.option_strings if flag.startswith("--no-")),
@@ -165,8 +155,6 @@ def _load_config(path: Path, profile: str) -> tuple[Dict[str, Any], Dict[str, An
     if not isinstance(configured_env, Mapping):
         raise ValueError("environment must be a mapping")
     variables = dict(os.environ)
-    # Resolve config-provided environment values in declaration order. This
-    # permits ALFWORLD_DATA or a server path to be referenced by a path field.
     for key, value in configured_env.items():
         if _SECRET.search(str(key)):
             raise ValueError(
@@ -188,8 +176,6 @@ def _load_config(path: Path, profile: str) -> tuple[Dict[str, Any], Dict[str, An
         _deep_merge(defaults.get("arguments") or {}, raw.get("paths") or {}),
         profile_data.get("arguments") or {},
     )
-    # Useful interpolation values are explicit and do not alter the process
-    # environment seen by the benchmark.
     variables.update({"CONFIG_DIR": str(path.parent), "PROFILE": profile})
     arguments = _expand(arguments, variables)
     for key, value in arguments.items():
@@ -248,8 +234,6 @@ def main() -> int:
         arguments = resolved["arguments"]
         _check_placeholders(arguments, args.allow_placeholders)
         pipeline = _arguments_to_cli(arguments) + extra
-        # Parse the final command once to catch missing required arguments and
-        # misspelled flags before a long-running benchmark starts.
         from scripts.run_eviskill import add_generation_args
 
         check = argparse.ArgumentParser(add_help=False)

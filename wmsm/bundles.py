@@ -117,13 +117,6 @@ def sample_family_epoch_bundle(
     seed: int,
     round_idx: int,
 ) -> List[Any]:
-    """Return a deterministic family-balanced epoch bundle.
-
-    Each epoch shuffles items within every task family, shuffles the family
-    order, then interleaves families round-robin before slicing into bundles.
-    This keeps short runs from being dominated by large task families while
-    still making a full pass over the provided manifest before the next epoch.
-    """
     manifest = list(manifest)
     if not manifest:
         return []
@@ -147,13 +140,6 @@ def sample_shuffle_epoch_bundle(
     round_idx: int,
     epoch_seed_base: int = 1,
 ) -> List[Any]:
-    """Return one bundle from a plain shuffled epoch over the manifest.
-
-    This mirrors SkillOpt's split-backed batch planning: shuffle all train items
-    once per epoch, then take contiguous batch_size slices. Unlike
-    family_epoch, this does not round-robin or otherwise balance task families
-    inside a bundle.
-    """
     manifest = list(manifest)
     if not manifest:
         return []
@@ -162,9 +148,6 @@ def sample_shuffle_epoch_bundle(
         return []
 
     bundles_per_epoch = max(1, (len(manifest) + bundle_size - 1) // bundle_size)
-    # SkillOPT numbers epochs from one when deriving its split-backed shuffle
-    # seed. epoch_seed_base=0 exists only to resume runs created before this
-    # convention was aligned; new runs always use the default one-based plan.
     epoch = max(0, int(round_idx)) // bundles_per_epoch + int(epoch_seed_base)
     bundle_in_epoch = max(0, int(round_idx)) % bundles_per_epoch
     ordered = list(manifest)
@@ -249,7 +232,6 @@ def sample_mixed_family_epoch_bundle(
     round_idx: int,
     family_group_frequency: int = 2,
 ) -> List[Any]:
-    """Return a deterministic mix of diverse and same-family epoch bundles."""
     manifest = list(manifest)
     if not manifest:
         return []

@@ -155,7 +155,7 @@ Return only valid JSON:
 
 Rules:
 - Return at most one revised_edit. Use null when no safe evidence-supported repair exists.
-- evidence_ids must be a non-empty subset of the original candidate evidence_ids.
+- evidence_ids must preserve exactly the original candidate evidence_ids; do not add or remove IDs.
 - Keep supported parts and make the smallest correction needed for the diagnosed missing or wrong rule.
 - Use only procedures, conditions, exact action forms, and outcomes supported by linked evidence. Do not invent unseen task answers, entities, identifiers, credentials, private values, or environment behavior.
 - The revised edit must differ from the original and mechanically apply to current skill.md.

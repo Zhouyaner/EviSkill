@@ -142,7 +142,6 @@ def build_appworld_runner(
 
 
 class FixedJsonActionLLM:
-    """Tiny action LLM for script dry-runs; real experiments should pass an actual model."""
 
     def chat_json(self, system_prompt, payload):
         payload = payload or {}

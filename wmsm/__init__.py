@@ -1,4 +1,3 @@
-"""Dual-layer Markdown skill evolution framework."""
 
 from .schemas import TaskRecord, TrajectoryStep
 

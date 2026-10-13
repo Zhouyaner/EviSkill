@@ -104,18 +104,17 @@ APPWORLD_L1_OUTPUT_MIN_CHARS = 120
 
 
 class SelectionEvaluationError(RuntimeError):
-    """Validation could not produce a complete, comparable task result set."""
+    pass
 
 
 class L2ProposerError(RuntimeError):
-    """The L2 proposer failed before producing a trustworthy candidate set."""
+    pass
 
 
 APPWORLD_L2_CODE_MAX_CHARS = 400
 APPWORLD_L2_OUTPUT_MAX_CHARS = 600
 APPWORLD_L2_STEP_LIMIT = 8
 L2_REPLAY_FAILURE_TYPES = {"rule_missing", "rule_wrong", "rule_ignored"}
-# Kept for callers that imported the AppWorld-era name before ScienceWorld shared attribution.
 APPWORLD_REPLAY_FAILURE_TYPES = L2_REPLAY_FAILURE_TYPES
 PROPOSER_EVIDENCE_MAX_TASK_CHARS = 150
 PROPOSER_EVIDENCE_MAX_EDIT_TARGET_CHARS = 220
@@ -205,12 +204,6 @@ def _working_branch_defer_uncovered_enabled(dataset: Any, args: Any) -> bool:
 
 
 def _defer_rule_ignored_configured(args: Any) -> bool:
-    """Return the single effective rule_ignored accept/defer setting.
-
-    ``--working-branch-defer-rule-ignored`` predates the global setting and is
-    intentionally retained as a compatibility alias. Both names feed this one
-    decision; neither changes the replay stage or working-branch mode.
-    """
     return bool(
         getattr(args, "defer_rule_ignored", False)
         or getattr(args, "working_branch_defer_rule_ignored", False)
@@ -218,7 +211,6 @@ def _defer_rule_ignored_configured(args: Any) -> bool:
 
 
 def _defer_rule_ignored_enabled(dataset: Any, args: Any) -> bool:
-    """Whether a replay-attributed ``rule_ignored`` label should be deferred."""
     return bool(
         (
             _is_appworld_dataset(dataset)
@@ -230,7 +222,6 @@ def _defer_rule_ignored_enabled(dataset: Any, args: Any) -> bool:
 
 
 def _working_branch_defer_rule_ignored_enabled(dataset: Any, args: Any) -> bool:
-    """Backward-compatible name for callers that used the old helper."""
     return _defer_rule_ignored_enabled(dataset, args)
 
 
@@ -462,8 +453,6 @@ def _l2_selection_feedback_enabled(dataset: Any, args: Any = None) -> bool:
         return False
     if bool(getattr(args, "no_l2_selection_feedback", False)):
         return False
-    # ScienceWorld epoch evolution is train-evidence-only: validation/dev cases
-    # remain a gate and must not flow back into skill edit prompts.
     if _is_scienceworld_dataset(dataset) or _is_appworld_dataset(dataset):
         return False
     return True
@@ -516,7 +505,6 @@ def _llm_input_chars(system_prompt: str, payload: Dict[str, Any]) -> int:
 
 
 def _cap_observations_in_place(value: Any, max_chars: int) -> Tuple[int, int, int]:
-    """Cap LLM-visible environment text while preserving actions and structure."""
     max_chars = int(max_chars)
     count = 0
     before_chars = 0
@@ -566,11 +554,6 @@ def _compact_llm_payload(
     *,
     label: str = "llm",
 ) -> Dict[str, Any]:
-    """Build the LLM-visible payload by shrinking only observation fields.
-
-    The raw EvidenceCards/replay sources stay untouched. Actions, trigger ranges,
-    edit text, evidence reasons, and skill.md are never removed here.
-    """
     compact = _jsonable_copy(payload)
     if bool(getattr(args, "llm_full_context", False)):
         return compact
@@ -652,7 +635,6 @@ def _appworld_relevant_skill_sections(
     linked_evidence: List[Dict[str, Any]],
     max_chars: int,
 ) -> str:
-    """Select complete Markdown blocks relevant to an AppWorld replay edit."""
     text = str(skill_md or "")
     if max_chars < 0 or len(text) <= max_chars:
         return text
@@ -727,7 +709,6 @@ def _compact_appworld_l2_step(
     code_chars: int,
     output_chars: int,
 ) -> Dict[str, Any]:
-    """Keep the causal code/output pair while bounding one AppWorld step."""
     out: Dict[str, Any] = {
         "step": step.get("step"),
         "action": _compress_appworld_code(str(step.get("action") or step.get("code") or ""), code_chars),
@@ -859,7 +840,6 @@ def _compact_appworld_l2_judge_payload(
     system_prompt: str,
     args: Any = None,
 ) -> Dict[str, Any]:
-    """Compact AppWorld judge context without dropping all execution output."""
     if bool(getattr(args, "llm_full_context", False)):
         return _jsonable_copy(payload)
     budget = _int_arg(
@@ -1039,7 +1019,6 @@ def _score_transition_from_step(
     after = _optional_float(row.get("score_after"))
     delta = _optional_float(row.get("score_delta"))
 
-    # Schema-v3 replay sources stored only cumulative per-step score.
     if after is None and "score" in row:
         after = _optional_float(row.get("score"))
     if before is None and previous_score is not None:
@@ -1641,9 +1620,6 @@ def _build_l1_evidence_payload(
         APPWORLD_L1_CODE_MAX_CHARS,
     )
     if not full_context and is_appworld and input_budget > 0 and stats["input_chars"] > input_budget:
-        # AppWorld Python can be much longer than its execution result. Reclaim
-        # code budget first so API schemas, errors, and mutation results remain
-        # visible to the analyst.
         low, high = APPWORLD_L1_CODE_MIN_CHARS, APPWORLD_L1_CODE_MAX_CHARS
         best: Optional[Tuple[Dict[str, Any], Dict[str, Any]]] = None
         while low <= high:
@@ -1877,7 +1853,6 @@ def _segment_steps(segment: Any) -> List[Dict[str, Any]]:
 
 
 def _optimizer_evidence_segment(segment: Any, *, dataset: str = "") -> Any:
-    """Return the evidence segment in the form consumed by the optimizer."""
     if _is_appworld_dataset(dataset):
         from .appworld_runner import redact_appworld_optimizer_value
 
@@ -3123,7 +3098,6 @@ def _limit_selection_tasks(
     size: int,
     seed: int,
 ) -> List[Dict[str, Any]]:
-    """Use the selection manifest as the pool, then choose a fixed subset."""
     if size <= 0 or len(rows) <= size:
         return rows
     return _sample_selection_tasks(rows, size=size, seed=seed)
@@ -3847,7 +3821,7 @@ def _semantic_hdbscan_components(
 
     try:
         from sklearn.cluster import HDBSCAN
-    except Exception as exc:  # pragma: no cover - depends on runtime environment
+    except Exception as exc:
         raise RuntimeError(
             "Semantic HDBSCAN clustering requires scikit-learn with sklearn.cluster.HDBSCAN. "
             "Use --semantic-clustering-method graph to fall back to threshold graph clustering."
@@ -5393,7 +5367,6 @@ def _make_standalone_contrastive_edit(
     *,
     origin_is_provisional: bool = True,
 ) -> Optional[Dict[str, Any]]:
-    """Convert a correction into a complete edit that does not depend on its origin."""
     origin = _normalize_proposed_edit(origin_edit)
     proposed = _normalize_proposed_edit(proposed_edit)
     if origin is None or proposed is None or origin.get("op") == "delete":
@@ -5476,7 +5449,6 @@ def _diagnose_markdown_edit(
     raw: Dict[str, Any],
     evidence_by_id: Dict[str, Dict[str, Any]],
 ) -> Dict[str, Any]:
-    """Explain why a proposer edit is or is not eligible for the current window."""
     raw = dict(raw or {})
     allowed_ops = {"append", "insert_after", "insert_after_section", "replace", "delete"}
     op = str(raw.get("op") or "").strip().lower()
@@ -5627,7 +5599,6 @@ def _dedupe_markdown_insert_content(
     skill_md: str,
     content: str,
 ) -> Tuple[str, str, bool]:
-    """Remove an already-present insert or merge its existing same-level sections."""
     raw_content = str(content or "").strip()
     if not raw_content:
         return skill_md, "", False
@@ -6467,7 +6438,6 @@ def _limit_working_branch_epoch_edits(
     info: Optional[Dict[str, Any]] = None,
     budget: Optional[int] = None,
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
-    """Apply the epoch edit budget only to the opt-in working branch."""
     if (
         not _evidence_working_branch_enabled(args)
         or _resolve_epoch_skill_update_mode(args) != "cluster_step"
@@ -6509,7 +6479,6 @@ def _split_working_branch_correction_edits(
     *,
     evidence_by_id: Dict[str, Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
-    """Keep merged correction edits attributable to exactly one origin."""
     split: List[Dict[str, Any]] = []
     for raw_edit in edits or []:
         edit = dict(raw_edit or {})
@@ -6652,8 +6621,6 @@ def _dedupe_epoch_edits(
     edits: List[Dict[str, Any]],
     evidence_by_id: Dict[str, Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
-    # Evidence is support metadata, not part of edit identity. Multiple
-    # trajectories can independently justify the same concrete Markdown edit.
     index_by_identity: Dict[Tuple[Any, ...], int] = {}
     deduped: List[Dict[str, Any]] = []
     for raw in sorted(edits or [], key=lambda edit: _epoch_edit_priority(edit, evidence_by_id)):
@@ -6673,8 +6640,6 @@ def _dedupe_epoch_edits(
                 + _evidence_id_list(edit.get("evidence_ids"))
             )
 
-            # Preserve all candidate/source provenance when duplicate edits
-            # came from different windows or merge branches.
             source_ids = _source_ids_for_edit(existing)
             source_ids.extend(_source_ids_for_edit(raw))
             source_ids = _evidence_id_list(source_ids)
@@ -6915,8 +6880,6 @@ def _merge_epoch_accepted_edits_no_budget(
             "uncovered_source_edit_count": 0,
         }
 
-    # Coverage mode treats skill text and accepted edits as essential payload.
-    # The legacy character caps remain available only to merge_rank ablations.
     max_content_chars = 0
     skill_max_chars = 0
     dataset_prompts = prompts_for_dataset(dataset)
@@ -7725,7 +7688,6 @@ def _normalized_skill_coverage_text(value: Any) -> str:
 
 
 def _evidence_has_exact_skill_coverage(skill_md: str, card: Dict[str, Any]) -> bool:
-    """Check whether the normalized proposed edit is already realized verbatim."""
     proposed = _normalize_proposed_edit(card.get("proposed_edit"))
     if proposed is None:
         return False
@@ -8495,7 +8457,6 @@ def _normalize_appworld_l2_judge_label(
     reflection_allowed: bool,
     defer_rule_ignored: bool = False,
 ) -> Dict[str, Any]:
-    """Backward-compatible alias for existing AppWorld callers and artifacts."""
     return _normalize_l2_replay_attribution_label(
         raw,
         reflection_allowed=reflection_allowed,
@@ -8585,9 +8546,9 @@ def _l2_replay_reflection(
     revised_ids = set(_evidence_id_list((revised or {}).get("evidence_ids")))
     if revised is None:
         validation_reason = "missing_or_invalid_revised_edit"
-    elif not revised_ids or not revised_ids.issubset(original_ids):
+    elif not revised_ids or revised_ids != original_ids:
         revised = None
-        validation_reason = "revised_evidence_ids_not_nonempty_subset"
+        validation_reason = "revised_evidence_ids_changed"
     elif all(
         str((revised or {}).get(key) or "") == str((edit or {}).get(key) or "")
         for key in ("op", "target", "content")
@@ -8612,6 +8573,79 @@ def _l2_replay_reflection(
     }
 
 
+def _verify_l2_reflected_edit(
+    *,
+    dataset: str,
+    teacher: Any,
+    runner: Any,
+    skill_md: str,
+    edit: Dict[str, Any],
+    linked_evidence: List[Dict[str, Any]],
+    replay_jobs: List[Tuple[Dict[str, Any], int, Dict[str, Any]]],
+    replay_source_by_evidence_id: Dict[str, Dict[str, Any]],
+    raw_by_id: Dict[str, Dict[str, Any]],
+    tmp_skill_path: Path,
+    args: Any,
+    progress_label: str,
+    window_suffix: str,
+    edit_label: str,
+) -> Dict[str, Any]:
+    candidate_skill_md, apply_reports = _apply_markdown_edits(skill_md, [edit])
+    apply_ok = bool(apply_reports) and all(row.get("applied") for row in apply_reports)
+    replay_evidence: List[Dict[str, Any]] = []
+    if apply_ok and replay_jobs:
+        atomic_write_text(tmp_skill_path, candidate_skill_md)
+        replay_evidence = _run_l2_replay_jobs_for_edit(
+            runner=runner,
+            replay_jobs=replay_jobs,
+            replay_source_by_evidence_id=replay_source_by_evidence_id,
+            raw_by_id=raw_by_id,
+            tmp_skill_path=tmp_skill_path,
+            args=args,
+            dataset=dataset,
+            progress_label=progress_label,
+            window_suffix=window_suffix,
+            edit_label=edit_label,
+        )
+    payload = _build_l2_skill_judge_payload(
+        skill_md=skill_md,
+        edit=edit,
+        linked_evidence=linked_evidence,
+        replay_evidence=replay_evidence,
+        dataset=dataset,
+        args=args,
+        reflection_allowed=False,
+    )
+    if not apply_ok:
+        label = {"decision": "reject", "reason": "reflected_edit_did_not_apply"}
+    elif (
+        not replay_jobs
+        or len(replay_evidence) != len(replay_jobs)
+        or any(row.get("error") for row in replay_evidence)
+    ):
+        label = {"decision": "reject", "reason": "reflected_replay_incomplete_or_failed"}
+    else:
+        label = _l2_skill_judge_label(
+            teacher=teacher,
+            skill_md=skill_md,
+            edit=edit,
+            linked_evidence=linked_evidence,
+            replay_evidence=replay_evidence,
+            dataset=dataset,
+            args=args,
+            payload=payload,
+            reflection_allowed=False,
+        )
+    return {
+        "label": label,
+        "system_prompt": prompts_for_dataset(dataset)["skill_judge_l2"],
+        "input": payload,
+        "apply_reports": apply_reports,
+        "replay_evidence": replay_evidence,
+        "action_replay_count": len(replay_jobs) if apply_ok else 0,
+    }
+
+
 def _appworld_l2_reflection(
     *,
     teacher: Any,
@@ -8622,7 +8656,6 @@ def _appworld_l2_reflection(
     judge_output: Dict[str, Any],
     args: Any = None,
 ) -> Dict[str, Any]:
-    """Backward-compatible AppWorld wrapper around the shared reflector."""
     return _l2_replay_reflection(
         dataset="appworld",
         teacher=teacher,
@@ -9831,7 +9864,6 @@ def _run_working_branch_post_reject_replay(
             "excluded_reasons": excluded_reasons,
         }
     tmp_skill_path = out / "_tmp_evidence_working_candidate_skill.md"
-    atomic_write_text(tmp_skill_path, candidate_skill_md)
     cached_rows = {
         str(row.get("working_replay_cache_key") or ""): row.get("replay_evidence") or []
         for row in replay_rows
@@ -9845,12 +9877,18 @@ def _run_working_branch_post_reject_replay(
     judge_cache_hits = 0
     reflections = 0
     for edit_index, (edit, jobs) in enumerate(allocated):
+        independent_skill_md, apply_reports = _apply_markdown_edits(validated_skill_md, [edit])
+        if not apply_reports or not all(row.get("applied") for row in apply_reports):
+            rejected.append({"edit": edit, "reason": "independent_edit_did_not_apply"})
+            excluded_reasons[str(edit.get("_working_edit_id") or "")] = "independent_edit_did_not_apply"
+            continue
+        atomic_write_text(tmp_skill_path, independent_skill_md)
         replay_evidence: List[Dict[str, Any]] = []
         edit_replay_cache_keys: List[str] = []
         for job in jobs:
             card, range_index, trigger = job
-            cache_key = replay_cache_key(
-                candidate_skill_md,
+            cache_key = "independent_v2:" + replay_cache_key(
+                independent_skill_md,
                 edit,
                 evidence_id=str(card.get("evidence_id") or ""),
                 range_index=range_index,
@@ -9913,7 +9951,8 @@ def _run_working_branch_post_reject_replay(
             )
 
         judge_cache_key = skill_fingerprint(
-            candidate_skill_md
+            "independent_v2:"
+            + independent_skill_md
             + json.dumps(
                 {
                     "edit": _working_edit_payload(edit),
@@ -9945,17 +9984,7 @@ def _run_working_branch_post_reject_replay(
             ):
                 l2_judge_rows.append(_jsonable_copy(cached_reflection_row))
             if label.get("decision") == "accept":
-                normalized_accepted = _normalize_working_branch_correction_edit(
-                    accepted_edit,
-                    evidence_by_id=evidence_by_id,
-                    state=working_branch_state,
-                )
-                if normalized_accepted is not None:
-                    accepted.append(normalized_accepted)
-                else:
-                    rejected.append(
-                        {"edit": edit, "reason": "non_standalone_correction"}
-                    )
+                accepted.append(accepted_edit)
             elif label.get("decision") == "defer":
                 deferred.append({"edit": edit, "reason": "rule_ignored"})
                 edit_id = str(edit.get("_working_edit_id") or "")
@@ -9969,7 +9998,7 @@ def _run_working_branch_post_reject_replay(
 
         linked = _linked_evidence(edit, evidence_by_id)
         payload = _build_l2_skill_judge_payload(
-            skill_md=base_skill_md,
+            skill_md=validated_skill_md,
             edit=edit,
             linked_evidence=linked,
             replay_evidence=replay_evidence,
@@ -9977,17 +10006,20 @@ def _run_working_branch_post_reject_replay(
             args=args,
             reflection_allowed=_uses_l2_replay_attribution(dataset),
         )
-        label = _l2_skill_judge_label(
-            teacher=teacher,
-            skill_md=base_skill_md,
-            edit=edit,
-            linked_evidence=linked,
-            replay_evidence=replay_evidence,
-            dataset=dataset,
-            args=args,
-            payload=payload,
-            reflection_allowed=_uses_l2_replay_attribution(dataset),
-        )
+        if len(replay_evidence) != len(jobs) or any(row.get("error") for row in replay_evidence):
+            label = {"decision": "reject", "reason": "independent_replay_incomplete_or_failed"}
+        else:
+            label = _l2_skill_judge_label(
+                teacher=teacher,
+                skill_md=validated_skill_md,
+                edit=edit,
+                linked_evidence=linked,
+                replay_evidence=replay_evidence,
+                dataset=dataset,
+                args=args,
+                payload=payload,
+                reflection_allowed=_uses_l2_replay_attribution(dataset),
+            )
         judge_row = {
             "dataset": dataset,
             "round": epoch_idx,
@@ -10005,7 +10037,7 @@ def _run_working_branch_post_reject_replay(
             reflection = _l2_replay_reflection(
                 dataset=dataset,
                 teacher=teacher,
-                skill_md=base_skill_md,
+                skill_md=validated_skill_md,
                 edit=edit,
                 linked_evidence=linked,
                 replay_evidence=replay_evidence,
@@ -10025,30 +10057,53 @@ def _run_working_branch_post_reject_replay(
             }
             l2_judge_rows.append(reflection_row)
             if reflection.get("accepted"):
-                accepted_edit = {
-                    **edit,
-                    **dict(reflection.get("revised_edit") or {}),
-                    "_working_edit_id": edit.get("_working_edit_id"),
-                }
-                label = {**label, "decision": "accept", "reflection_applied": True}
+                revised_edit = _normalize_working_branch_correction_edit(
+                    {**edit, **dict(reflection.get("revised_edit") or {})},
+                    evidence_by_id=evidence_by_id,
+                    state=working_branch_state,
+                )
+                if revised_edit is None:
+                    label = {"decision": "reject", "reason": "non_standalone_correction"}
+                else:
+                    verification = _verify_l2_reflected_edit(
+                        dataset=dataset,
+                        teacher=teacher,
+                        runner=runner,
+                        skill_md=validated_skill_md,
+                        edit=revised_edit,
+                        linked_evidence=_linked_evidence(revised_edit, evidence_by_id),
+                        replay_jobs=jobs,
+                        replay_source_by_evidence_id=replay_source_by_evidence_id,
+                        raw_by_id={},
+                        tmp_skill_path=tmp_skill_path,
+                        args=args,
+                        progress_label=f"epoch {epoch_idx + 1}",
+                        window_suffix=" working post-reject reflection",
+                        edit_label=str(edit.get("_working_edit_id") or edit_index + 1),
+                    )
+                    label = {**verification["label"], "reflection_applied": True}
+                    action_replays += verification["action_replay_count"]
+                    reflection_row["verification"] = verification
+                    replay_rows.append({
+                        "dataset": dataset,
+                        "round": epoch_idx,
+                        "epoch_index": epoch_idx,
+                        "stage": "working_post_reject_reflection",
+                        "edit_index": edit_index,
+                        "edit": revised_edit,
+                        "replay_evidence": verification["replay_evidence"],
+                    })
+                    save_jsonl(
+                        str(_epoch_artifact_dir(out, epoch_idx) / EPOCH_JSONL_FILENAMES["replay_label_traces"]),
+                        _filter_rows_for_epoch(replay_rows, epoch_idx, filename=EPOCH_JSONL_FILENAMES["replay_label_traces"]),
+                    )
+                    if label.get("decision") == "accept":
+                        accepted_edit = revised_edit
             else:
                 label = {**label, "decision": "reject", "reflection_applied": False}
+            reflection_row["accepted"] = label.get("decision") == "accept"
         if label.get("decision") == "accept":
-            normalized_accepted = _normalize_working_branch_correction_edit(
-                accepted_edit,
-                evidence_by_id=evidence_by_id,
-                state=working_branch_state,
-            )
-            if normalized_accepted is not None:
-                accepted_edit = normalized_accepted
-                accepted.append(accepted_edit)
-            else:
-                label = {
-                    **label,
-                    "decision": "reject",
-                    "reason": "non_standalone_correction",
-                }
-                rejected.append({"edit": edit, "reason": "non_standalone_correction"})
+            accepted.append(accepted_edit)
         elif label.get("decision") == "defer":
             deferred.append({"edit": edit, "reason": "rule_ignored"})
             edit_id = str(edit.get("_working_edit_id") or "")
@@ -10185,15 +10240,31 @@ def _working_branch_commit_transition(
         ]
     )
     state["provisional_edits"] = []
+    tracked_edits = {
+        str(record.get("edit_id") or ""): {
+            **dict(record.get("edit") or {}),
+            "_working_edit_id": record.get("edit_id"),
+        }
+        for record in prior_ledger
+    }
+    for edit in changed_edits:
+        edit_id = str(edit.get("_working_edit_id") or "")
+        prior = tracked_edits.get(edit_id) or {}
+        tracked_edits[edit_id] = {
+            **edit,
+            "evidence_ids": _evidence_id_list(
+                list(prior.get("evidence_ids") or []) + list(edit.get("evidence_ids") or [])
+            ),
+        }
     state["comparison_queue"] = _working_branch_queue_for_transition(
         state=state,
-        changed_edits=changed_edits,
+        changed_edits=list(tracked_edits.values()),
         evidence_rows=evidence_rows,
         epoch_idx=epoch_idx,
         parent_revision=parent_revision,
         working_revision=working_revision,
         seed=seed,
-    ) if candidate_skill_md != previous_working_md else []
+    )
     state.pop("pending_validation", None)
     state["stage"] = {"epoch_index": epoch_idx, "name": "complete", "decision": "commit"}
     state["last_transition"] = {
@@ -10335,6 +10406,20 @@ def _working_branch_reject_transition(
         ]
         reactivated = reactivate_evidence(evidence_rows, rollback_evidence_ids)
         state["provisional_edits"] = prior_records
+        state["comparison_queue"] = _working_branch_queue_for_transition(
+            state=state,
+            changed_edits=[
+                {**dict(record.get("edit") or {}), "_working_edit_id": record.get("edit_id")}
+                for record in prior_records
+                if str(record.get("status") or "provisional") not in non_live_statuses
+                and not bool(record.get("remove_requested"))
+            ],
+            evidence_rows=evidence_rows,
+            epoch_idx=epoch_idx,
+            parent_revision=parent_revision,
+            working_revision=parent_revision,
+            seed=seed,
+        )
         state.pop("pending_validation", None)
         state["stage"] = {
             "epoch_index": epoch_idx,
@@ -10376,49 +10461,23 @@ def _working_branch_reject_transition(
     )
     reactivated = reactivate_evidence(evidence_rows, removed_evidence_ids)
     state["provisional_edits"] = surviving
-    new_edit_ids = {
-        str(record.get("edit_id") or "")
-        for record in replacement_records + new_records
-        if str(record.get("edit_id") or "")
-    }
-    changed_edits = [
+    tracked_edits = [
         {**dict(record.get("edit") or {}), "_working_edit_id": record.get("edit_id")}
         for record in surviving
-        if str(record.get("edit_id") or "") in new_edit_ids
     ]
-    changed_edits = coalesce_working_edits(changed_edits)
-    queued_edit_ids = {
-        str(edit.get("_working_edit_id") or "") for edit in changed_edits
-    }
-    for record in surviving:
-        edit_id = str(record.get("edit_id") or "")
-        if edit_id in queued_edit_ids:
-            continue
-        if (
-            int(record.get("comparison_count", 0) or 0) > 0
-            and int(record.get("non_improvement_streak", 0) or 0) <= 0
-            and str(record.get("status") or "")
-            not in {"unresolved", "needs_correction"}
-        ):
-            continue
-        changed_edits.append(
-            {**dict(record.get("edit") or {}), "_working_edit_id": edit_id}
-        )
-        queued_edit_ids.add(edit_id)
     if rebuilt != previous_working_md:
         working_revision = next_working_revision(state)
-        comparison_queue = _working_branch_queue_for_transition(
-            state=state,
-            changed_edits=changed_edits,
-            evidence_rows=evidence_rows,
-            epoch_idx=epoch_idx,
-            parent_revision=parent_revision,
-            working_revision=working_revision,
-            seed=seed,
-        )
     else:
         working_revision = parent_revision
-        comparison_queue = []
+    comparison_queue = _working_branch_queue_for_transition(
+        state=state,
+        changed_edits=tracked_edits,
+        evidence_rows=evidence_rows,
+        epoch_idx=epoch_idx,
+        parent_revision=parent_revision,
+        working_revision=working_revision,
+        seed=seed,
+    )
     atomic_write_text(working_skill_path, rebuilt)
     state["comparison_queue"] = comparison_queue
     state.pop("pending_validation", None)
@@ -11203,7 +11262,6 @@ def _resume_shuffle_epoch_seed_plans(
     seed: int,
     logs: List[Dict[str, Any]],
 ) -> Dict[int, Dict[str, int]]:
-    """Detect legacy shuffle epochs and the first mixed-plan resume bundle."""
     bundles_per_epoch = max(1, (len(manifest) + int(bundle_size) - 1) // int(bundle_size))
     epoch_indices = sorted(
         {
@@ -11876,6 +11934,7 @@ def _run_l2_update_window(
         candidate_skill_md, apply_reports = _apply_markdown_edits(skill_md, [edit])
         apply_ok = bool(apply_reports) and all(bool(row.get("applied")) for row in apply_reports)
         replay_evidence: List[Dict[str, Any]] = []
+        replay_jobs: List[Tuple[Dict[str, Any], int, Dict[str, Any]]] = []
         if apply_ok:
             tmp_skill_path = out / "_tmp_l2_candidate_skill.md"
             tmp_skill_path.write_text(candidate_skill_md, encoding="utf-8")
@@ -12041,15 +12100,56 @@ def _run_l2_update_window(
             if reflection_result.get("accepted"):
                 revised_edit = dict(reflection_result.get("revised_edit") or {})
                 revised_linked = _linked_evidence(revised_edit, full_evidence_by_id)
-                accepted_edits.append(
-                    _annotate_edit_metadata(revised_edit, revised_linked, merge_level=1)
+                verification = _verify_l2_reflected_edit(
+                    dataset=dataset,
+                    teacher=teacher,
+                    runner=runner,
+                    skill_md=skill_md,
+                    edit=revised_edit,
+                    linked_evidence=revised_linked,
+                    replay_jobs=replay_jobs,
+                    replay_source_by_evidence_id=replay_source_by_evidence_id,
+                    raw_by_id=raw_by_id,
+                    tmp_skill_path=tmp_skill_path,
+                    args=args,
+                    progress_label=progress_label,
+                    window_suffix=window_suffix + " reflection",
+                    edit_label=edit_label,
                 )
-                effective_edit = revised_edit
-                final_decision = "accept"
-                reflection_accepts += 1
-                original_ids = set(_evidence_id_list(edit.get("evidence_ids")))
-                revised_ids = set(_evidence_id_list(revised_edit.get("evidence_ids")))
-                reflection_narrowed_evidence_ids.update(original_ids - revised_ids)
+                final_decision = str(verification["label"].get("decision") or "reject")
+                reflection_result["accepted"] = final_decision == "accept"
+                reflection_attempt_row["accepted"] = final_decision == "accept"
+                reflection_attempt_row["verification"] = verification
+                replay_rows.append({
+                    "dataset": dataset,
+                    "round": round_idx,
+                    **({"epoch_index": round_idx} if str(l2_trigger_reason or "") == "epoch_boundary" else {}),
+                    "stage": "window_local_reflection",
+                    "edit_index": edit_idx,
+                    "edit": revised_edit,
+                    "replay_evidence": verification["replay_evidence"],
+                })
+                l2_judge_rows.append({
+                    "dataset": dataset,
+                    "round": round_idx,
+                    **({"epoch_index": round_idx} if str(l2_trigger_reason or "") == "epoch_boundary" else {}),
+                    "stage": "window_local_reflection",
+                    "system_prompt": l2_judge_prompt,
+                    "input": verification["input"],
+                    "output": verification["label"],
+                })
+                if final_decision == "accept":
+                    accepted_edits.append(
+                        _annotate_edit_metadata(revised_edit, revised_linked, merge_level=1)
+                    )
+                    effective_edit = revised_edit
+                    reflection_accepts += 1
+                elif final_decision == "defer":
+                    rule_ignored_defers += 1
+                    rule_ignored_deferred_evidence_ids.update(_evidence_id_list(edit.get("evidence_ids")))
+                else:
+                    reflection_failures += 1
+                    reflection_failed_evidence_ids.update(_evidence_id_list(edit.get("evidence_ids")))
             else:
                 final_decision = "reject"
                 reflection_failures += 1
@@ -13773,9 +13873,6 @@ def _run_epoch_l2_update_merge_rank(
             flush=True,
         )
     else:
-        # A globally deferred rule_ignored attribution must remain available
-        # for a later epoch even when the evidence working branch is disabled.
-        # The ordinary merge_rank cleanup consumes every other evidence row.
         globally_deferred_rule_ignored_ids = {
             str(evidence_id)
             for evidence_id, reason in (deferred_evidence_fates or {}).items()
@@ -14564,7 +14661,6 @@ def _partition_epoch_l1_results(
     seed: int,
     epoch_idx: int,
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
-    """Match SkillOPT's deterministic failure/success minibatch ordering."""
     failure_results = [row for row in rows or [] if not _is_success_result(row)]
     success_results = [row for row in rows or [] if _is_success_result(row)]
     failure_seed = int(seed) + (int(epoch_idx) + 1) * 1000 + 1
@@ -14591,8 +14687,6 @@ def _run_epoch_l1_evidence_extraction(
     l1_judge_rows: List[Dict[str, Any]],
     manifest_task_order: Optional[List[str]] = None,
 ) -> Tuple[List[str], int, Dict[str, Any]]:
-    # Keep the epoch rollout order. SkillOPT splits and shuffles the result list
-    # it receives; sorting back to manifest order changes minibatch membership.
     ordered_results = list(epoch_train_results or [])
     result_ids = [str(row.get("task_id") or row.get("id") or "") for row in ordered_results]
     if len(set(result_ids)) != len(result_ids):
@@ -15615,8 +15709,6 @@ def run_eviskill_evolution(args) -> Dict[str, Any]:
             )
             save_json(str(logs_path), logs)
 
-        # Deferred evidence is intentionally carried across epochs. L2 sees every
-        # still-active train EvidenceCard, not only cards created in this epoch.
         epoch_evidence_pool = _active_evidence_rows(evidence_rows)
         epoch_rollout_task_count = sum(
             len((row or {}).get("task_ids") or [])

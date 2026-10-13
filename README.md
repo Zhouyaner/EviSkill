@@ -90,11 +90,7 @@ Use the official benchmark sources for the environment packages and data:
 The repositories above contain the authoritative installation and download
 instructions. The exact experiment split is then produced locally by the
 split-building scripts below.
- <!-- For ScienceWorld, the source manifests are the
-SkillNet-derived files released with the [SkillNet experiments]
-(https://github.com/zjunlp/SkillNet/tree/main/experiments). The split builder
-expects `train.json`, `dev.json`, and `test.json` and checks their fingerprints
-before constructing the 96/48/full split. -->
+
 
 ## Prepare Splits
 
@@ -152,15 +148,7 @@ export SCIENCEWORLD_PATH="/absolute/path/to/ScienceWorld"    # ScienceWorld
 export SCIENCEWORLD_JAR_PATH="/absolute/path/to/ScienceWorld/scienceworld/scienceworld.jar"
 ```
 
-<!-- `ALFWORLD_PATH` is optional. Set it only when the ALFWorld package is used
-from a source checkout rather than installed in the active Python environment.
-The ALFWorld runtime YAML is already included at
-`configs/alfworld/config_tw.yaml`; it reads the data root from `ALFWORLD_DATA`.
 
-AppWorld and ScienceWorld environment servers are launched with the current
-Python interpreter. No machine-specific `server_python` path is required.
-The server implementation for ScienceWorld is included in
-`scripts/serve_scienceworld_env.py`. -->
 
 ## Run an Experiment
 

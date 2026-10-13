@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Build the official AppWorld train/dev/test-normal manifests used by EviSkill."""
 
 from __future__ import annotations
 

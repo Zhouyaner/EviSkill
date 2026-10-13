@@ -124,7 +124,6 @@ def resolve_alfworld_config(config_path: str) -> str:
 
 
 def canonical_alfworld_gamefile(gamefile: str) -> str:
-    """Return a data-root-independent identity for an ALFWorld gamefile."""
     path = Path(str(gamefile or "")).expanduser()
     parts = path.parts
     if "json_2.1.1" in parts:
@@ -134,7 +133,6 @@ def canonical_alfworld_gamefile(gamefile: str) -> str:
 
 
 def resolve_alfworld_gamefile(gamefile: str) -> str:
-    """Resolve absolute or SkillOPT-style ALFWORLD_DATA-relative paths."""
     raw = str(gamefile or "").strip()
     if not raw:
         raise FileNotFoundError("ALFWorld gamefile path is empty")
@@ -501,8 +499,6 @@ class AlfWorldRunner:
             action = decision.get("action") or (admissible[0] if admissible else "look")
             if admissible and action not in admissible:
                 action = admissible[0]
-            # TextWorld's Tatsu parser is process-global and is not thread-safe.
-            # Keep LLM calls concurrent, but serialize environment transitions.
             with _TEXTWORLD_REPLAY_ENV_LOCK:
                 next_obs, score, done, info = self._step(action)
             final_score = float(score)
@@ -660,7 +656,6 @@ class AlfWorldRunner:
         world_knowledge=None,
         force_skill_ids=None,
     ):
-        """Replay original actions up to start_step, then continue with skill_bank."""
         task_ref = {
             "task_id": original_result.get("task_id"),
             "task": original_result.get("instruction"),

@@ -23,7 +23,6 @@ APPWORLD_TRANSPORT_RETRY_BASE_SECONDS = 2.0
 
 
 def _is_transient_appworld_transport_error(exc: BaseException) -> bool:
-    """Identify transport failures that are safe to recover by rerunning a task."""
     text = str(exc or "").lower()
     return any(
         marker in text
@@ -156,7 +155,6 @@ _BEARER_RE = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+\-/=]+")
 
 
 def redact_appworld_optimizer_value(value: Any) -> Any:
-    """Redact credential values while retaining API/code structure."""
     if isinstance(value, dict):
         return {
             str(key): (
@@ -341,7 +339,6 @@ class ManagedAppWorldServerPool:
         return list(self.urls)
 
     def recover_worker(self, worker_index: int) -> None:
-        """Restart only a dead worker; live workers keep their assigned port."""
         if self._closed or worker_index < 0 or worker_index >= len(self.processes):
             return
         process = self.processes[worker_index]

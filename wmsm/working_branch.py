@@ -205,7 +205,6 @@ def edit_payload(edit: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def working_edit_identity(edit: Dict[str, Any]) -> Tuple[str, str, str]:
-    """Return the concrete Markdown identity used by the working branch."""
     return (
         str((edit or {}).get("op") or "").strip().lower(),
         str((edit or {}).get("target") or "").strip(),
@@ -260,7 +259,6 @@ def _merge_working_edit_metadata(target: Dict[str, Any], source: Dict[str, Any])
 
 
 def coalesce_working_edits(edits: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Coalesce equivalent edits while retaining all supporting provenance."""
     result: List[Dict[str, Any]] = []
     index_by_identity: Dict[Tuple[str, str, str], int] = {}
     for raw in edits or []:

@@ -1,10 +1,3 @@
-"""Normalize the effective Action Agent runtime and persist run snapshots.
-
-The dataset YAML files are the source of truth for user-editable experiment
-parameters. This module deliberately does not load a second configuration
-file: it normalizes parsed arguments, records derived runtime values, and
-checks that resumed evaluation uses the same effective settings.
-"""
 
 import json
 import os
@@ -140,9 +133,6 @@ def action_runtime_config(args: Any) -> Dict[str, Any]:
             ),
         }
     elif dataset == "appworld":
-        # The AppWorld runner uses the active interpreter by default. Keep the
-        # runtime snapshot aligned with that behavior instead of recording a
-        # machine-specific `python` path.
         server_python = str(
             getattr(args, "appworld_server_python", None)
             or os.environ.get("APPWORLD_SERVER_PYTHON")

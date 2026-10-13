@@ -3,7 +3,6 @@ from typing import Any, Dict, List, Optional
 
 
 class MarkdownSkillBank:
-    """Adapter that injects one complete Markdown skill document into ActionAgent."""
 
     def __init__(self, markdown_path: str, *, skill_id: str = "skill_md"):
         self.markdown_path = str(markdown_path)
